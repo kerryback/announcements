@@ -24,7 +24,7 @@ sim2 = Sim2(mu, mustar, sigma, rho, lam, rsquared)
 sim3 = Sim3(mu, mustar, sigma, rho, lam, rsquared)
 
 numdays = 150
-numsims = 10000
+numsims = 100000
 
 print("Model 1")
 theta, x, sim_price1, sim_price2, sim_mkt = sim1.sim(numdays=numdays, numsims=numsims)

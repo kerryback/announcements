@@ -23,7 +23,7 @@ sim1 = Sim1(mu, mustar, sigma, rho, lam, rsquared)
 sim2 = Sim2(mu, mustar, sigma, rho, lam, rsquared)
 sim3 = Sim3(mu, mustar, sigma, rho, lam, rsquared)
 
-numsims = 10000
+numsims = 100000
 
 print("Model 1")
 sim1.sim(numsims).to_csv(f"{DIR}/model1_sim.csv")
