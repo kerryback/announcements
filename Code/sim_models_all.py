@@ -12,9 +12,9 @@ from core.model3 import Sim as Sim3
 
 DIR = "./simulations"
 
-mu = 105
+mu = 103
 mustar = 100
-sigma = 15
+sigma = 20
 lam = 1000
 rsquared = 0.2
 rho = 0.5
