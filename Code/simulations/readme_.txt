@@ -1,0 +1,1 @@
+This folder is filled in by running sim_models_all.py and sim_models_all_daily.py.
