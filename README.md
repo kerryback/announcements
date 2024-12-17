@@ -11,5 +11,3 @@ This file contains the code used to solve, run simulations, and generate figures
 - figures_models_all.ipynb generates figures that illustrate multiple models.
 
 - The core module contains definitions of functions and classes that are used for all models (core.py) or for individual models (model1.py, model2.py, and model3.py). 
-
-If needed, the specific versions of packages used when running these files can be found in requirements.txt.
