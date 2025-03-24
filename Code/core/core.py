@@ -9,24 +9,29 @@ import numpy as np
 from scipy.interpolate import splrep, splev
 from scipy.stats import multivariate_normal as binorm
 
+# The CDF of a standard bivariate normal distribution with correlation rho
 def Gamma(x, y, rho):
     cov = np.array([[1, rho], [rho, 1]]) 
     return binorm.cdf(np.array([x, y]), cov=cov)
 
+# The PDF and CDF of a standard normal distribution
 phi = lambda z: norm.pdf(z)
 Phi = lambda z: norm.cdf(z)
 
+# The following function calculates the numerical derivative of a function fn at x
 def derivative (fn, x, eps=1.0e-3):
     d1 = max(0, x-eps)
     d2 = min(x+eps, 1)
 
     return (fn(d2) - fn(d1)) / (d2-d1)
 
+# Function f in the draft
 def f(z):
     num = z
     den = z - z*Phi(z) - phi(z)
     return num / den
 
+# The inverse of f
 def finv(t):
     def fns(z):
         num = z
@@ -37,19 +42,22 @@ def finv(t):
         return fn, first, second
     return root(fns, x0=-1, fprime=True, fprime2=True, method='newton').root
 
+# The derivative of f
 def fprime(z):
     num = z
     den = z - z*Phi(z) - phi(z)
     dnum = 1
     dden = 1 - Phi(z)
     return (den*dnum - num*dden) / den**2
-    
+
+# The function g in the draft
 def g(z, t, xi):
     num = z*Phi(xi) + phi(xi) - z*Phi(z) - phi(z)
     num = z + t*num
     den = z - z*Phi(z) - phi(z)
     return num / den
 
+# The inverse of g
 def ginv(u, t, xi):
     def fns(z) :
         num = z*Phi(xi) + phi(xi) - z*Phi(z) - phi(z)
@@ -68,6 +76,7 @@ def ginv(u, t, xi):
         print("wrong value for u in ginv", t, u)
         return None
 
+# The derivative of g
 def gprime(z, t, xi):
     num = z*Phi(xi) + phi(xi) - z*Phi(z) - phi(z)
     den = z - z*Phi(z) - phi(z)
@@ -75,6 +84,8 @@ def gprime(z, t, xi):
     dden = 1 - Phi(z)
     return fprime(z) + t * (den*dnum - num*dden) / den**2
 
+# The next few functions calculate the first and second moments of the truncated normal distribution.
+# The following change of variable is used:
 # x1 = mu - sigma*e1
 # x1 < B iff e1 > -b
 # analogous under risk-neutral probability
@@ -116,6 +127,7 @@ def rosenbaum_cross(b, rho):
     term2 = np.sqrt((1-rho**2)/(2*np.pi)) * phi(b*np.sqrt(2/(1+rho)))
     return rho + (term1 + term2) / Gamma(b, b, rho)
 
+# The following class keeps the parameters of the model
 class Parameters:
     def __init__(self, mu, mustar, sigma, rho, lam, rsquared):
         self.mu = mu
@@ -129,6 +141,9 @@ class Parameters:
         self.delta = (lam-2*self.gamma)*mu
         self.sigz = self.gamma * sigma * np.sqrt(1+rho) * np.sqrt((1+rho)/rsquared - 2)
  
+
+# The following function does not seem to be used anywhere in the code
+# I might have to drop it
 def kz(price, mkt, window):
     numdays, numsims = price.shape
     numdays -= 1            # numdays is 1 fewer than number of time grid points

@@ -11,11 +11,14 @@ from scipy.integrate import dblquad
 from scipy.optimize import root_scalar as root
 from core.core import *
 
+
+# The following class solves Model 2 of the paper in stage B (after firm 2 discloses)
 class Stage2(Parameters):
     def __init__(self, mu, mustar, sigma, rho, lam, rsquared):
         super(Stage2, self).__init__(mu, mustar, sigma, rho, lam, rsquared)
 
-    # assuming firm 2 reveals x2 at time t when the boundary is b
+    # The price of firm 1
+    # Assuming firm 2 reveals x2 at time t when the boundary is b
     def price(self, t, b, x2, u):
         mustar1 = self.rho * x2 + (1-self.rho) * self.mustar
         sig1 = self.sigma*np.sqrt(1-self.rho**2)
@@ -25,6 +28,10 @@ class Stage2(Parameters):
         else :
             return mustar1 + sig1*ginv(u, t, xi)
 
+    # The physical probabilties
+    # q1: firm 1 recieved its signal before t
+    # q2: firm 1 received its signal between t and u
+    # q3: firm 1 has not received its signal by u
     def probs(self, t, b, x2, u):
         mu1 = self.rho * x2 + (1-self.rho) * self.mu
         sig1 = self.sigma*np.sqrt(1-self.rho**2)
@@ -35,6 +42,7 @@ class Stage2(Parameters):
         sum = q1 + q2 + q3 
         return q1 / sum, q2 / sum, q3 / sum
 
+    # The risk-neutral probabilities of the events descibed above
     def rn_probs(self, t, b, x2, u):
         mustar1 = self.rho * x2 + (1-self.rho) * self.mustar
         sig1 = self.sigma*np.sqrt(1-self.rho**2)
@@ -47,6 +55,7 @@ class Stage2(Parameters):
         sum = q1 + q2 + q3 
         return q1 / sum, q2 / sum, q3 / sum
 
+    # The price of firm 1 after scheduling its announcement and before actually announcing
     def price_schedule(self, t, b, x2, u):
         mustar1 = self.rho * x2 + (1-self.rho) * self.mustar
         sig1 = self.sigma*np.sqrt(1-self.rho**2)
@@ -64,6 +73,7 @@ class Stage2(Parameters):
         den = (p1 * q1) + (p2 * q2) + (p3 * q3)
         return num / den
 
+    # The time of firm 1's announcement, given its signal, the timing and signal of firm 2
     def time(self, t, b, x2, x1):
 
         mustar1 = self.rho * x2 + (1-self.rho) * self.mustar
@@ -74,14 +84,15 @@ class Stage2(Parameters):
         u2 = max(t, g(z, t, xi))
         return u2 if x1 >= b else u1
 
-    # stage 2 for firm 2 if firm 1 discloses first
-
+    # Price of firm 2 after firm 1 announces first
     def price2(self, x1):
         return self.rho*x1 + (1-self.rho)*self.mustar
 
+    # Price of firm 2 after firm 1 announces first and firm 2 schedules its announcement
     def price_schedule2(self, x1):
         return self.price2(x1)
 
+# The following function solves the fixed point problem of Model 2 as in Lemma 3.4
 def Solve(t, rho):
     def foc(b):
         num = t * phi(b)
@@ -100,14 +111,18 @@ def Solve(t, rho):
         return lhs - rhs   
     return root(foc, x0=-1, x1=1, method='secant').root
 
+# We have already solved the fixed point problem for a grid of t and rho.
+# The following lines load the results into a dataframe. 
 fixed_points = pd.read_csv('fixed_points/model2.csv', index_col="time")
 fixed_points.columns = np.round(fixed_points.columns.astype(float), 2)
 
+# The following class solves Model 2 of the paper in stage A (before firm 2 discloses)
 class Stage1(Parameters):
     def __init__(self, mu, mustar, sigma, rho, lam, rsquared):
 
         super(Stage1, self).__init__(mu, mustar, sigma, rho, lam, rsquared)
 
+        # Load the boundary and time values
         if rho in fixed_points.columns:
             boundaries = [mustar + sigma*float(b) for b in fixed_points[rho]]
             times = [float(t) for t in fixed_points.index]
@@ -120,6 +135,7 @@ class Stage1(Parameters):
         # input to splrep must be ordered from smallest to largest
         self.from_b_to_t = splrep(boundaries[::-1], times[::-1])
 
+    # Get the value of the boundary for a given time
     def bdy(self, t):
         try:
             # should work for a numpy array of times
@@ -129,6 +145,7 @@ class Stage1(Parameters):
             assert t>=0 and t<=1, "time must be between 0 and 1"
             return splev(t, self.from_t_to_b, der=0).item()
 
+    # Get the value of the time for a given boundary
     def time(self, b):
         # for an individual boundary point b
         if b >= self.bdy(0):
@@ -138,24 +155,31 @@ class Stage1(Parameters):
         else:
             return min(1., max(splev(b, self.from_b_to_t, der=0).item(), 0.))
 
+    # The probabilities of the following events
+    # q1: firm 1 has not received its signal at t
+    # q2: firm 1 has received its signal but not disclosed at t
     def probs(self, t):
         b = (self.bdy(t) - self.mu) / self.sigma
         q1 = (1 - t) / (1 - t + t*Phi(b))
         return q1, 1-q1
 
+    # The risk-neutral probabilities of the events descibed above
     def rn_probs(self, t):
         b = (self.bdy(t) - self.mustar) / self.sigma
         q1 = (1 - t) / (1 - t + t*Phi(b))
         return q1, 1-q1
 
+    # The price of firm 1 before the first disclosure
     def price1(self, t):
         q1, q2 = self.rn_probs(t)
         b = (self.bdy(t) - self.mustar) / self.sigma
         return q1 * self.mustar + q2 * (self.mustar - self.sigma*truncated_mean(b))
-       
+    
+    # The price of firm 2 before the first disclosure
     def price2(self, t):
         return (1-self.rho)*self.mustar + self.rho*self.price1(t)
 
+    # The price of firm 1 after scheduling its announcement and before actually announcing
     def price_schedule1(self, t):
         q1, q2 = self.rn_probs(t)
         b = self.bdy(t)
@@ -167,29 +191,29 @@ class Stage1(Parameters):
         e2 = self.mustar + self.sigma * phi(z) / Phi(-z)
         return (p1 * e1 * q1 + p2 * e2 * q2) / (p1 * q1 + p2 * q2)
 
+    # The price of firm 2 after scheduling its announcement and before actually announcing
     def price_schedule2(self, t):
         return self.price2(t)
 
+    # The mean of x1 before the first disclosure
     def mean1(self, t):
         q1, q2 = self.probs(t)
         b = (self.bdy(t) - self.mu) / self.sigma
         return q1 * self.mu + q2 * (self.mu - self.sigma*truncated_mean(b)) 
 
+    # The mean of x2 before the first disclosure
     def mean2(self, t):
         return (1-self.rho)*self.mu + self.rho*self.mean1(t)
 
+    # The price of the market wealth (w) before the first disclosure
     def price_of_w(self, t):
         return self.delta - self.kappa*self.sigz**2 + self.gamma * (self.price1(t) + self.price2(t))
 
+    # The mean of the market wealth (w) before the first disclosure
     def mean_of_w(self, t):
         return self.delta + self.gamma * (self.mean1(t) + self.mean2(t))
 
-    def mean_of_square1(self, t):
-        p = (self.price1(t) - self.mu) / self.sigma
-        num = t*(2*self.sigma*self.mu + self.sigma**2 * p) * phi(p)
-        den = 1 - t + t*Phi(p)
-        return  self.mu**2 + self.sigma**2 - num / den
-
+    # The mean of x1**2 before the first disclosure
     # x1**2 = mu**2 - 2*mu*sigma*e1 + sigma**2 * e1**2
     def mean_of_square1(self, t):
         q1, q2 = self.probs(t)
@@ -199,9 +223,11 @@ class Stage1(Parameters):
             + q2 * (self.mu**2 - 2*self.mu*self.sigma*truncated_mean(b) + self.sigma**2*truncated_square(b))
         )
 
+    # The variance of x1 before the first disclosure
     def var1(self, t):
         return self.mean_of_square1(t) - self.mean1(t)**2
 
+    # The variance of the market wealth (w) before the first disclosure
     # w = delta + gamma * (x1 + (1-rho)*mu + rho*x1 + e1) + z
     def varw(self, t):
         return (
@@ -210,46 +236,58 @@ class Stage1(Parameters):
             + self.sigz**2
         )
 
+    # The covariance between x1 and w before the first disclosure
     def cov1w(self, t):
         return self.gamma*(1+self.rho)*self.var1(t)
 
+    # The covariance between x2 and w before the first disclosure
     # x2 = (1-rho)*mu + rho*x1 + e
     # w = delta + gamma*(1+rho)*x1 + gamma*e + z
     def cov2w(self, t):
         return self.gamma*self.rho*(1+self.rho)*self.var1(t) + self.gamma*(1-self.rho**2)*self.sigma**2
 
+    # Firm 1 CAPM beta before the first disclosure
     def beta1(self, t):
         return self.cov1w(t) / self.varw(t)
 
+    # Firm 2 CAPM beta before the first disclosure
     def beta2(self, t):
         return self.cov2w(t) / self.varw(t)
     
+    # Firm 1 CAPM beta before the first disclosure
     def alpha1(self, t):
         return self.mean1(t) - self.price1(t) - self.beta1(t) * (self.mean_of_w(t) - self.price_of_w(t))
 
+    # Firm 2 CAPM beta before the first disclosure
     def alpha2(self, t):
         return self.mean2(t) - self.price2(t) - self.beta2(t) * (self.mean_of_w(t) - self.price_of_w(t))
 
+    # Firm 1 CAPM alpha using date-0 beta (wrong)
     def alpha1_wrong(self, t):
         return self.mean1(t) - self.price1(t) - self.beta1(0) * (self.mean_of_w(t) - self.price_of_w(t))
 
+    # Firm 2 CAPM alpha using date-0 beta (wrong)
     def alpha2_wrong(self, t):
         return self.mean2(t) - self.price2(t) - self.beta2(0) * (self.mean_of_w(t) - self.price_of_w(t))
 
+# The following class simulates Model 2 for a given number of days and simulations
 class DailySim(Parameters):
     def __init__(self, mu, mustar, sigma, rho, lam, rsquared):
         super(DailySim, self).__init__(mu, mustar, sigma, rho, lam, rsquared)
         self.stage1 = Stage1(mu, mustar, sigma, rho, lam, rsquared)
         self.stage2 = Stage2(mu, mustar, sigma, rho, lam, rsquared)
 
+    # Generate random information arrival times (theta1 and theta2)
     def theta(self, numsims):
         return np.random.uniform(low=0, high=1 - 1.0e-6, size=(numsims, 2))
 
+    # Generate random signals (x1 and x2)
     def x(self, numsims):
         corr = np.array([[1, self.rho], [self.rho, 1]])
         cov = self.sigma**2 * corr
         return multivariate_normal.rvs([self.mu, self.mu], cov, size=numsims)
 
+    # Simulate the model for a given number of days and simulations
     def sim(self, numdays, numsims):
         theta = self.theta(numsims)
         x = self.x(numsims)
@@ -338,6 +376,8 @@ class DailySim(Parameters):
         sim_mkt.index.name = "day"
         return theta, x, sim_price1, sim_price2, sim_mkt
 
+# The following class uses the Stage1 class to simulate the model for a given number of simulations
+# In this case, we do not divide the interval [0, 1] into days
 class Sim(Parameters):
     def __init__(self, mu, mustar, sigma, rho, lam, rsquared):
         super(Sim, self).__init__(mu, mustar, sigma, rho, lam, rsquared)

@@ -1,10 +1,14 @@
-##################################################################
+##############################################################
 #
 # This computes the equilibrium standardized boundary in Model III
 #
-# Created by Kerry Back, July 2024
+# Execute this file from the command line as
 #
-##################################################################
+# python fixed_points_model3.py "pathname/directory" 
+#
+# Argument is directory to read from and write to.
+#
+###############################################################
 
 import numpy as np
 import pandas as pd

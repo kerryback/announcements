@@ -1,8 +1,10 @@
 ##############################################################
 #
+# This computes the equilibrium standardized boundary in Model II
+#
 # Execute this file from the command line as
 #
-# python 1_BoundaryFixedPointApril2024.py "pathname/directory" 
+# python fixed_points_model2.py "pathname/directory" 
 #
 # Argument is directory to read from and write to.
 #
